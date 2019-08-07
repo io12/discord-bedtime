@@ -20,11 +20,15 @@ use serenity::{
 /// bot events.
 struct Handler;
 
+/// Implementation of event handler
 impl EventHandler for Handler {
+    /// Print a log message when the bot is ready
     fn ready(&self, _: Context, ready: Ready) {
         println!("{} is ready!", ready.user.name);
     }
 
+    /// When a user's presence updates, flag the user as either awake or asleep,
+    /// depending on the new online status
     fn presence_update(&self, ctx: Context, ev: PresenceUpdateEvent) {
         let mut data = ctx.data.write();
         let user_info = data
@@ -41,23 +45,28 @@ impl EventHandler for Handler {
     }
 }
 
+/// Reply to a message with the debug representation of `dbg`
 fn say_dbg<T: fmt::Debug>(ctx: &Context, msg: &Message, dbg: T) {
     say(ctx, msg, format!("```{:#?}```", dbg))
 }
 
+/// If `res` holds an error, reply to a message with the error
 fn say_if_err<T, E: fmt::Debug>(ctx: &Context, msg: &Message, res: Result<T, E>) {
     if let Err(err) = res {
         say_dbg(ctx, msg, err)
     }
 }
 
+/// Reply to a message with some content
 fn say<T: fmt::Display>(ctx: &Context, msg: &Message, content: T) {
     if let Err(err) = msg.channel_id.say(&ctx.http, &content) {
         println!("Error saying message '{}': {}", content, err);
     }
 }
 
+/// Set client configuration options
 fn config_client(client: &mut Client) {
+    // Set up command framework
     client.with_framework(
         StandardFramework::new()
             .configure(|c| {
