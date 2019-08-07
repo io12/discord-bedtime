@@ -4,11 +4,12 @@ use std::str::FromStr;
 use chrono::NaiveTime;
 use serde::{Deserialize, Serialize};
 
-/// Customized version of `chrono::naive::NaiveTime`
+/// Customized version of [`NaiveTime`]
 #[derive(PartialEq, Eq, PartialOrd, Ord, Copy, Clone, Serialize, Deserialize)]
 pub struct Time(pub NaiveTime);
 
 impl Time {
+    /// Format string to use on the inner [`NaiveTime`]
     const FMT: &'static str = "%I:%M %p";
 }
 
