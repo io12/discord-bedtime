@@ -17,16 +17,27 @@ use serenity::{
     prelude::*,
 };
 
-/// Information stored about a user
+/// User-specific state
 #[derive(Serialize, Deserialize)]
 pub struct UserInfo {
+    /// Whether the user has bedtime alerts enabled
     on: bool,
+
+    /// The user's time zone, if one is set
     time_zone: Option<Tz>,
+
+    /// The user's bedtime, if one is set
     bedtime: Option<Time>,
+
+    /// Whether the user is detected to be awake
     #[serde(skip)]
     awake: Arc<AtomicBool>,
+
+    /// Whether the user is awake past their bedtime
     #[serde(skip)]
     allowed_awake: Arc<AtomicBool>,
+
+    /// Handle used to manage bedtime alert scheduling
     #[serde(skip)]
     sched: Option<ScheduleHandle>,
 }
@@ -44,6 +55,7 @@ impl Default for UserInfo {
     }
 }
 
+/// In the specified private channel, send a sleep reminder
 fn send_nag_msg_in_dm(http: impl AsRef<Http>, chan: PrivateChannel) {
     let res = chan.say(&http, "Go to bed. 😴 🛏  💤");
     if let Err(err) = res {
@@ -51,6 +63,7 @@ fn send_nag_msg_in_dm(http: impl AsRef<Http>, chan: PrivateChannel) {
     }
 }
 
+/// Send a sleep reminder direct message to a user
 fn send_nag_msg(http: impl AsRef<Http>, id: UserId) {
     println!("Nagging user '{}'", id);
     let res = id.create_dm_channel(&http);
@@ -60,6 +73,7 @@ fn send_nag_msg(http: impl AsRef<Http>, id: UserId) {
     }
 }
 
+/// Send a sleep reminder direct message to a user if the awake flag is set
 fn maybe_nag(http: impl AsRef<Http>, id: UserId, awake: Arc<AtomicBool>) {
     let awake = awake.load(atomic::Ordering::Relaxed);
 
