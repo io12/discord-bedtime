@@ -174,6 +174,11 @@ impl UserInfo {
     pub fn asleep(&mut self) {
         self.awake.store(false, atomic::Ordering::Relaxed)
     }
+
+    /// Set user allowed awake flag
+    pub fn allow_awake(&mut self) {
+        self.allowed_awake.store(true, atomic::Ordering::Relaxed)
+    }
 }
 
 impl fmt::Display for UserInfo {

@@ -14,7 +14,7 @@ use serenity::{
 
 group!({
     name: "general",
-    commands: [time_zone, bedtime, info, on, off],
+    commands: [time_zone, bedtime, wake, info, on, off],
 });
 
 #[help]
@@ -73,6 +73,23 @@ fn bedtime(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let resp = format!("Your bedtime has been set to {}", tm.to_string());
 
     msg.channel_id.say(&ctx.http, resp)?;
+
+    Ok(())
+}
+
+#[command]
+#[description = "Tell the bot that you woke up for the day"]
+fn wake(ctx: &mut Context, msg: &Message) -> CommandResult {
+    ctx.data
+        .write()
+        .get_mut::<State>()
+        .expect("No state in context")
+        .users
+        .entry(msg.author.id)
+        .or_default()
+        .allow_awake();
+
+    msg.channel_id.say(&ctx.http, "Good morning 🌅")?;
 
     Ok(())
 }
