@@ -14,7 +14,7 @@ use serenity::{
 
 group!({
     name: "general",
-    commands: [time_zone, bedtime, info],
+    commands: [time_zone, bedtime, info, on, off],
 });
 
 #[help]
@@ -91,6 +91,46 @@ fn info(ctx: &mut Context, msg: &Message) -> CommandResult {
         .to_string();
 
     msg.channel_id.say(&ctx.http, resp)?;
+
+    Ok(())
+}
+
+#[command]
+#[description = "Enable sleep reminders"]
+fn on(ctx: &mut Context, msg: &Message) -> CommandResult {
+    let mut data = ctx.data.write();
+
+    let state = data.get_mut::<State>().expect("No state in context");
+
+    state
+        .users
+        .entry(msg.author.id)
+        .or_default()
+        .on(ctx, msg.author.id);
+
+    state.save();
+
+    msg.channel_id.say(&ctx.http, "Sleep reminders enabled")?;
+
+    Ok(())
+}
+
+#[command]
+#[description = "Disable sleep reminders"]
+fn off(ctx: &mut Context, msg: &Message) -> CommandResult {
+    let mut data = ctx.data.write();
+
+    let state = data.get_mut::<State>().expect("No state in context");
+
+    state
+        .users
+        .entry(msg.author.id)
+        .or_default()
+        .off(ctx, msg.author.id);
+
+    state.save();
+
+    msg.channel_id.say(&ctx.http, "Sleep reminders disabled")?;
 
     Ok(())
 }
