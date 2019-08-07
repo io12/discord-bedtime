@@ -81,6 +81,7 @@ fn config_client(client: &mut Client) {
             }),
     );
 
+    // Load state from previous run and store in the context
     client.data.write().insert::<State>(State::load());
 }
 

@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use serenity::{model::id::UserId, prelude::*};
 
 lazy_static! {
+    /// Path to the state save file
     static ref STATE_PATH: PathBuf = {
         let path = env!("CARGO_MANIFEST_DIR");
         let path = PathBuf::from(path);
@@ -17,13 +18,17 @@ lazy_static! {
     };
 }
 
-/// Bot state
+/// Data containing the bot's state. This is serialized to a file as it's
+/// updated.
 #[derive(Default, Serialize, Deserialize)]
 pub struct State {
+    /// Map of user IDs to per-user state
     pub users: HashMap<UserId, UserInfo>,
 }
 
 impl State {
+    /// Serialize state to a file. This should be called whenever `State` is
+    /// updated.
     pub fn save(&self) {
         let f = File::create(&*STATE_PATH);
         let f = f.expect("Failed to create state file");
@@ -32,6 +37,8 @@ impl State {
         v.expect("Failed to write state");
     }
 
+    /// Try to load state from a file, and use the default if the file does not
+    /// exist.
     pub fn load() -> Self {
         let f = File::open(&*STATE_PATH);
         match f {
@@ -45,7 +52,8 @@ impl State {
     }
 }
 
-/// Field of `serenity::prelude::Context::data`
+/// Field of `serenity::prelude::Context::data` used to store the state in the
+/// context.
 impl TypeMapKey for State {
     type Value = State;
 }
