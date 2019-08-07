@@ -1,5 +1,8 @@
+use crate::say;
 use crate::State;
+use crate::CMD_PREFIX;
 
+use serenity::model::channel::Message;
 use serenity::model::event::PresenceUpdateEvent;
 use serenity::model::gateway::Ready;
 use serenity::model::user::OnlineStatus;
@@ -30,6 +33,26 @@ impl EventHandler for Handler {
         match ev.presence.status {
             OnlineStatus::Offline => user_info.asleep(),
             _ => user_info.awake(),
+        }
+    }
+
+    /// Reply with usage information when bot is pinged
+    fn message(&self, ctx: Context, msg: Message) {
+        let bot_user_id = ctx
+            .http
+            .get_current_user()
+            .expect("Failed getting current user")
+            .id;
+
+        let pinged = msg.mentions_user_id(bot_user_id);
+
+        if pinged {
+            let resp = format!(
+                "My command prefix is `{}`. Try `{} help` for a list of commands.",
+                CMD_PREFIX, CMD_PREFIX
+            );
+
+            say(&ctx, &msg, resp)
         }
     }
 }

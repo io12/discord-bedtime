@@ -18,6 +18,9 @@ use serenity::{
     prelude::*,
 };
 
+/// Bot command prefix
+pub static CMD_PREFIX: &'static str = "b,";
+
 /// Reply to a message with the debug representation of `dbg`
 fn say_dbg<T: fmt::Debug>(ctx: &Context, msg: &Message, dbg: T) {
     say(ctx, msg, format!("```{:#?}```", dbg))
@@ -31,7 +34,7 @@ fn say_if_err<T, E: fmt::Debug>(ctx: &Context, msg: &Message, res: Result<T, E>)
 }
 
 /// Reply to a message with some content
-fn say<T: fmt::Display>(ctx: &Context, msg: &Message, content: T) {
+pub fn say<T: fmt::Display>(ctx: &Context, msg: &Message, content: T) {
     if let Err(err) = msg.channel_id.say(&ctx.http, &content) {
         println!("Error saying message '{}': {}", content, err);
     }
@@ -43,7 +46,7 @@ fn config_client(client: &mut Client) {
     client.with_framework(
         StandardFramework::new()
             .configure(|c| {
-                c.prefix("!bed")
+                c.prefix(CMD_PREFIX)
                     // Disable argument delimiters
                     .delimiters::<Delimiter, _>(iter::empty())
             })
