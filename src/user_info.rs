@@ -85,6 +85,7 @@ fn maybe_nag(http: impl AsRef<Http>, id: UserId, awake: Arc<AtomicBool>) {
     }
 }
 
+/// Schedule bedtime alerts for a user
 fn sched_bedtime(
     ctx: &Context,
     time_zone: Tz,
@@ -117,6 +118,7 @@ fn sched_bedtime(
 }
 
 impl UserInfo {
+    /// Update user's bedtime alert schedule based on their settings
     fn update_sched(&mut self, ctx: &Context, id: UserId) {
         match self {
             UserInfo {
@@ -139,36 +141,43 @@ impl UserInfo {
         }
     }
 
+    /// Set user's time zone
     pub fn set_time_zone(&mut self, ctx: &Context, id: UserId, time_zone: Tz) {
         self.time_zone = Some(time_zone);
         self.update_sched(ctx, id);
     }
 
+    /// Set user's bedtime
     pub fn set_bedtime(&mut self, ctx: &Context, id: UserId, bedtime: Time) {
         self.bedtime = Some(bedtime);
         self.update_sched(ctx, id);
     }
 
+    /// Enable sleep alerts for user
     pub fn on(&mut self, ctx: &Context, id: UserId) {
         self.on = true;
         self.update_sched(ctx, id);
     }
 
+    /// Disable sleep alerts for user
     pub fn off(&mut self, ctx: &Context, id: UserId) {
         self.on = false;
         self.update_sched(ctx, id);
     }
 
+    /// Set user awake flag
     pub fn awake(&mut self) {
         self.awake.store(true, atomic::Ordering::Relaxed)
     }
 
+    /// Unset user awake flag
     pub fn asleep(&mut self) {
         self.awake.store(false, atomic::Ordering::Relaxed)
     }
 }
 
 impl fmt::Display for UserInfo {
+    /// Pretty-print user-specific state
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let time_zone = match self.time_zone {
             Some(tz) => tz.name(),
