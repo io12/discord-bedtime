@@ -30,7 +30,7 @@ fn help(
 }
 
 #[command]
-#[description = "Set your time zone"]
+#[description = "Set your time zone. List of options here: http://ix.io/1Rbm"]
 fn time_zone(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
     let tz = args.parse()?;
 
