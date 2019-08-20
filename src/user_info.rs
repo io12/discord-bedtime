@@ -14,7 +14,6 @@ use serde::{Deserialize, Serialize};
 use serenity::{
     http::raw::Http,
     model::{channel::PrivateChannel, id::UserId},
-    prelude::*,
 };
 
 /// User-specific state
@@ -87,7 +86,7 @@ fn maybe_nag(http: impl AsRef<Http>, id: UserId, awake: Arc<AtomicBool>) {
 
 /// Schedule bedtime alerts for a user
 fn sched_bedtime(
-    ctx: &Context,
+    http: Arc<Http>,
     time_zone: Tz,
     bedtime: Time,
     id: UserId,
@@ -95,7 +94,7 @@ fn sched_bedtime(
     allowed_awake: Arc<AtomicBool>,
 ) -> ScheduleHandle {
     let mut sched = Scheduler::with_tz(time_zone);
-    let http = Arc::clone(&ctx.http);
+    let http = Arc::clone(&http);
     println!("Scheduling bedtime for user '{}'", id);
     sched
         .every(1.day())
@@ -119,7 +118,7 @@ fn sched_bedtime(
 
 impl UserInfo {
     /// Update user's bedtime alert schedule based on their settings
-    fn update_sched(&mut self, ctx: &Context, id: UserId) {
+    pub fn update_sched(&mut self, http: Arc<Http>, id: UserId) {
         match self {
             UserInfo {
                 on,
@@ -132,7 +131,7 @@ impl UserInfo {
                 let awake = Arc::clone(&awake);
                 let allowed_awake = Arc::clone(&allowed_awake);
 
-                let sched = sched_bedtime(ctx, *time_zone, *bedtime, id, awake, allowed_awake);
+                let sched = sched_bedtime(http, *time_zone, *bedtime, id, awake, allowed_awake);
                 self.sched = Some(sched);
             }
             _ => {
@@ -142,27 +141,27 @@ impl UserInfo {
     }
 
     /// Set user's time zone
-    pub fn set_time_zone(&mut self, ctx: &Context, id: UserId, time_zone: Tz) {
+    pub fn set_time_zone(&mut self, http: Arc<Http>, id: UserId, time_zone: Tz) {
         self.time_zone = Some(time_zone);
-        self.update_sched(ctx, id);
+        self.update_sched(http, id);
     }
 
     /// Set user's bedtime
-    pub fn set_bedtime(&mut self, ctx: &Context, id: UserId, bedtime: Time) {
+    pub fn set_bedtime(&mut self, http: Arc<Http>, id: UserId, bedtime: Time) {
         self.bedtime = Some(bedtime);
-        self.update_sched(ctx, id);
+        self.update_sched(http, id);
     }
 
     /// Enable sleep alerts for user
-    pub fn on(&mut self, ctx: &Context, id: UserId) {
+    pub fn on(&mut self, http: Arc<Http>, id: UserId) {
         self.on = true;
-        self.update_sched(ctx, id);
+        self.update_sched(http, id);
     }
 
     /// Disable sleep alerts for user
-    pub fn off(&mut self, ctx: &Context, id: UserId) {
+    pub fn off(&mut self, http: Arc<Http>, id: UserId) {
         self.on = false;
-        self.update_sched(ctx, id);
+        self.update_sched(http, id);
     }
 
     /// Set user awake flag

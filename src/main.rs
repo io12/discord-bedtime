@@ -10,7 +10,10 @@ extern crate lazy_static;
 use handler::Handler;
 use state::State;
 
-use std::{env, fmt, iter};
+use std::env;
+use std::fmt;
+use std::iter;
+use std::sync::Arc;
 
 use serenity::{
     framework::{standard::Delimiter, StandardFramework},
@@ -66,7 +69,23 @@ fn config_client(client: &mut Client) {
             }),
     );
 
-    // Load state from previous run and store in the context
+    client_load_state(&client);
+}
+
+/// Load saved state from previous run, schedule bedtime alerts accordingly, and
+/// store state in client context
+fn client_load_state(client: &Client) {
+    // Load state from previous run
+    let state = State::load();
+
+    // Schedule bedtime alerts
+    let http = &client.cache_and_http.http;
+    for (user_id, mut user_info) in state.users {
+        let http = Arc::clone(http);
+        user_info.update_sched(http, user_id);
+    }
+
+    // Store state in context
     client.data.write().insert::<State>(State::load());
 }
 

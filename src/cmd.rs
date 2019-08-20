@@ -1,6 +1,7 @@
 use crate::state::State;
 
 use std::collections::HashSet;
+use std::sync::Arc;
 
 use serenity::{
     framework::standard::{
@@ -38,17 +39,19 @@ fn time_zone(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 
     let state = data.get_mut::<State>().expect("No state in context");
 
-    state
-        .users
-        .entry(msg.author.id)
-        .or_default()
-        .set_time_zone(ctx, msg.author.id, tz);
+    let http = &ctx.http;
+
+    state.users.entry(msg.author.id).or_default().set_time_zone(
+        Arc::clone(http),
+        msg.author.id,
+        tz,
+    );
 
     state.save();
 
     let resp = format!("Your time zone has been set to {}", tz.name());
 
-    msg.channel_id.say(&ctx.http, resp)?;
+    msg.channel_id.say(http, resp)?;
 
     Ok(())
 }
@@ -62,17 +65,19 @@ fn bedtime(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 
     let state = data.get_mut::<State>().expect("No state in context");
 
+    let http = &ctx.http;
+
     state
         .users
         .entry(msg.author.id)
         .or_default()
-        .set_bedtime(ctx, msg.author.id, tm);
+        .set_bedtime(Arc::clone(http), msg.author.id, tm);
 
     state.save();
 
     let resp = format!("Your bedtime has been set to {}", tm.to_string());
 
-    msg.channel_id.say(&ctx.http, resp)?;
+    msg.channel_id.say(http, resp)?;
 
     Ok(())
 }
@@ -119,15 +124,17 @@ fn on(ctx: &mut Context, msg: &Message) -> CommandResult {
 
     let state = data.get_mut::<State>().expect("No state in context");
 
+    let http = &ctx.http;
+
     state
         .users
         .entry(msg.author.id)
         .or_default()
-        .on(ctx, msg.author.id);
+        .on(Arc::clone(http), msg.author.id);
 
     state.save();
 
-    msg.channel_id.say(&ctx.http, "Sleep reminders enabled")?;
+    msg.channel_id.say(http, "Sleep reminders enabled")?;
 
     Ok(())
 }
@@ -139,15 +146,17 @@ fn off(ctx: &mut Context, msg: &Message) -> CommandResult {
 
     let state = data.get_mut::<State>().expect("No state in context");
 
+    let http = &ctx.http;
+
     state
         .users
         .entry(msg.author.id)
         .or_default()
-        .off(ctx, msg.author.id);
+        .off(Arc::clone(http), msg.author.id);
 
     state.save();
 
-    msg.channel_id.say(&ctx.http, "Sleep reminders disabled")?;
+    msg.channel_id.say(http, "Sleep reminders disabled")?;
 
     Ok(())
 }
