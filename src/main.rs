@@ -78,15 +78,23 @@ fn client_load_state(client: &Client) {
     // Load state from previous run
     let state = State::load();
 
+    // Store state in context
+    client.data.write().insert::<State>(state);
+
     // Schedule bedtime alerts
+
     let http = &client.cache_and_http.http;
-    for (user_id, mut user_info) in state.users {
+    let mut map = client.data.write();
+    let users = map
+        .get_mut::<State>()
+        .expect("No state in client")
+        .users
+        .iter_mut();
+
+    for (&user_id, ref mut user_info) in users {
         let http = Arc::clone(http);
         user_info.update_sched(http, user_id);
     }
-
-    // Store state in context
-    client.data.write().insert::<State>(State::load());
 }
 
 fn main() {
