@@ -75,7 +75,7 @@ fn bedtime(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
 
     state.save();
 
-    let resp = format!("Your bedtime has been set to {}", tm.to_string());
+    let resp = format!("Your bedtime has been set to {}", tm);
 
     msg.channel_id.say(http, resp)?;
 

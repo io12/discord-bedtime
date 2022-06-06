@@ -22,7 +22,7 @@ use serenity::{
 };
 
 /// Bot command prefix
-pub static CMD_PREFIX: &'static str = "b,";
+pub static CMD_PREFIX: &str = "b,";
 
 /// Reply to a message with the debug representation of `dbg`
 fn say_dbg<T: fmt::Debug>(ctx: &Context, msg: &Message, dbg: T) {
@@ -69,7 +69,7 @@ fn config_client(client: &mut Client) {
             }),
     );
 
-    client_load_state(&client);
+    client_load_state(client);
 }
 
 /// Load saved state from previous run, schedule bedtime alerts accordingly, and

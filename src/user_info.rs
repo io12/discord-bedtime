@@ -128,8 +128,8 @@ impl UserInfo {
                 allowed_awake,
                 ..
             } if *on => {
-                let awake = Arc::clone(&awake);
-                let allowed_awake = Arc::clone(&allowed_awake);
+                let awake = Arc::clone(awake);
+                let allowed_awake = Arc::clone(allowed_awake);
 
                 let sched = sched_bedtime(http, *time_zone, *bedtime, id, awake, allowed_awake);
                 self.sched = Some(sched);

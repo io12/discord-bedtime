@@ -13,8 +13,7 @@ lazy_static! {
     static ref STATE_PATH: PathBuf = {
         let path = env!("CARGO_MANIFEST_DIR");
         let path = PathBuf::from(path);
-        let path = path.join("state.json");
-        path
+        path.join("state.json")
     };
 }
 
