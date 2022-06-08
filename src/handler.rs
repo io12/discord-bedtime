@@ -2,8 +2,9 @@ use crate::say;
 use crate::State;
 use crate::CMD_PREFIX;
 
+use serenity::async_trait;
 use serenity::model::channel::Message;
-use serenity::model::event::PresenceUpdateEvent;
+use serenity::model::gateway::Presence;
 use serenity::model::gateway::Ready;
 use serenity::model::user::OnlineStatus;
 use serenity::prelude::*;
@@ -13,34 +14,36 @@ use serenity::prelude::*;
 pub struct Handler;
 
 /// Implementation of event handler
+#[async_trait]
 impl EventHandler for Handler {
     /// Print a log message when the bot is ready
-    fn ready(&self, _: Context, ready: Ready) {
+    async fn ready(&self, _: Context, ready: Ready) {
         println!("{} is ready!", ready.user.name);
     }
 
     /// When a user's presence updates, flag the user as either awake or asleep,
     /// depending on the new online status
-    fn presence_update(&self, ctx: Context, ev: PresenceUpdateEvent) {
-        let mut data = ctx.data.write();
+    async fn presence_update(&self, ctx: Context, presence: Presence) {
+        let mut data = ctx.data.write().await;
         let user_info = data
             .get_mut::<State>()
             .expect("No state in context")
             .users
-            .entry(ev.presence.user_id)
+            .entry(presence.user.id)
             .or_default();
 
-        match ev.presence.status {
+        match presence.status {
             OnlineStatus::Offline => user_info.asleep(),
             _ => user_info.awake(),
         }
     }
 
     /// Reply with usage information when bot is pinged
-    fn message(&self, ctx: Context, msg: Message) {
+    async fn message(&self, ctx: Context, msg: Message) {
         let bot_user_id = ctx
             .http
             .get_current_user()
+            .await
             .expect("Failed getting current user")
             .id;
 
@@ -52,7 +55,7 @@ impl EventHandler for Handler {
                 CMD_PREFIX, CMD_PREFIX
             );
 
-            say(&ctx, &msg, resp)
+            say(&ctx, &msg, resp).await
         }
     }
 }

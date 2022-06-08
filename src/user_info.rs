@@ -9,10 +9,10 @@ use std::time::Duration;
 
 use chrono::Timelike;
 use chrono_tz::Tz;
-use clokwerk::{ScheduleHandle, Scheduler, TimeUnits};
+use clokwerk::{AsyncScheduler, Job, TimeUnits};
 use serde::{Deserialize, Serialize};
 use serenity::{
-    http::raw::Http,
+    http::{CacheHttp, Http},
     model::{channel::PrivateChannel, id::UserId},
 };
 
@@ -38,7 +38,7 @@ pub struct UserInfo {
 
     /// Handle used to manage bedtime alert scheduling
     #[serde(skip)]
-    sched: Option<ScheduleHandle>,
+    sched: Option<tokio::task::JoinHandle<()>>,
 }
 
 impl Default for UserInfo {
@@ -55,70 +55,85 @@ impl Default for UserInfo {
 }
 
 /// In the specified private channel, send a sleep reminder
-fn send_nag_msg_in_dm(http: impl AsRef<Http>, chan: PrivateChannel) {
-    let res = chan.say(&http, "Go to bed. 😴 🛏  💤");
+async fn send_nag_msg_in_dm(http: impl AsRef<Http>, chan: PrivateChannel) {
+    let res = chan.say(&http, "Go to bed. 😴 🛏  💤").await;
     if let Err(err) = res {
         println!("Error sending user sleep reminder: {}", err);
     }
 }
 
 /// Send a sleep reminder direct message to a user
-fn send_nag_msg(http: impl AsRef<Http>, id: UserId) {
+async fn send_nag_msg(cache_http: impl CacheHttp, id: UserId) {
     println!("Nagging user '{}'", id);
-    let res = id.create_dm_channel(&http);
+    let res = id.create_dm_channel(&cache_http).await;
     match res {
-        Ok(dm) => send_nag_msg_in_dm(http, dm),
+        Ok(dm) => send_nag_msg_in_dm(cache_http.http(), dm).await,
         Err(err) => println!("Error creating DM channel: {}", err),
     }
 }
 
 /// Send a sleep reminder direct message to a user if the awake flag is set
-fn maybe_nag(http: impl AsRef<Http>, id: UserId, awake: Arc<AtomicBool>) {
+async fn maybe_nag(cache_http: impl CacheHttp, id: UserId, awake: Arc<AtomicBool>) {
     let awake = awake.load(atomic::Ordering::Relaxed);
 
     println!("User '{}' awake status: '{}'", id, awake);
 
     if awake {
-        send_nag_msg(&http, id);
+        send_nag_msg(cache_http, id).await;
         sleep(Duration::from_secs(5));
     }
 }
 
+async fn nag_loop(
+    http: Arc<Http>,
+    id: UserId,
+    awake: Arc<AtomicBool>,
+    allowed_awake: Arc<AtomicBool>,
+) {
+    println!("Reached nag loop for user '{}'", id);
+    allowed_awake.store(false, atomic::Ordering::Relaxed);
+    loop {
+        if allowed_awake.load(atomic::Ordering::Relaxed) {
+            break;
+        }
+
+        let awake = Arc::clone(&awake);
+
+        maybe_nag(&http, id, awake).await;
+    }
+}
+
 /// Schedule bedtime alerts for a user
-fn sched_bedtime(
+async fn sched_bedtime(
     http: Arc<Http>,
     time_zone: Tz,
     bedtime: Time,
     id: UserId,
     awake: Arc<AtomicBool>,
     allowed_awake: Arc<AtomicBool>,
-) -> ScheduleHandle {
-    let mut sched = Scheduler::with_tz(time_zone);
+) -> tokio::task::JoinHandle<()> {
+    let mut sched = AsyncScheduler::with_tz(time_zone);
     let http = Arc::clone(&http);
     println!("Scheduling bedtime for user '{}'", id);
     sched
         .every(1.day())
         .plus(bedtime.0.hour().hours())
         .plus(bedtime.0.minute().minutes())
-        .run(move || {
-            println!("Reached nag loop for user '{}'", id);
-            allowed_awake.store(false, atomic::Ordering::Relaxed);
-            loop {
-                if allowed_awake.load(atomic::Ordering::Relaxed) {
-                    break;
-                }
-
-                let awake = Arc::clone(&awake);
-
-                maybe_nag(&http, id, awake);
-            }
-        });
-    sched.watch_thread(Duration::from_secs(1))
+        .run(move || nag_loop(http.clone(), id, awake.clone(), allowed_awake.clone()));
+    tokio::spawn(async move {
+        loop {
+            sched.run_pending().await;
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+    })
 }
 
 impl UserInfo {
     /// Update user's bedtime alert schedule based on their settings
-    pub fn update_sched(&mut self, http: Arc<Http>, id: UserId) {
+    pub async fn update_sched(&mut self, http: Arc<Http>, id: UserId) {
+        if let Some(sched) = &self.sched {
+            sched.abort()
+        }
         match self {
             UserInfo {
                 on,
@@ -131,7 +146,8 @@ impl UserInfo {
                 let awake = Arc::clone(awake);
                 let allowed_awake = Arc::clone(allowed_awake);
 
-                let sched = sched_bedtime(http, *time_zone, *bedtime, id, awake, allowed_awake);
+                let sched =
+                    sched_bedtime(http, *time_zone, *bedtime, id, awake, allowed_awake).await;
                 self.sched = Some(sched);
             }
             _ => {
@@ -141,27 +157,27 @@ impl UserInfo {
     }
 
     /// Set user's time zone
-    pub fn set_time_zone(&mut self, http: Arc<Http>, id: UserId, time_zone: Tz) {
+    pub async fn set_time_zone(&mut self, http: Arc<Http>, id: UserId, time_zone: Tz) {
         self.time_zone = Some(time_zone);
-        self.update_sched(http, id);
+        self.update_sched(http, id).await;
     }
 
     /// Set user's bedtime
-    pub fn set_bedtime(&mut self, http: Arc<Http>, id: UserId, bedtime: Time) {
+    pub async fn set_bedtime(&mut self, http: Arc<Http>, id: UserId, bedtime: Time) {
         self.bedtime = Some(bedtime);
-        self.update_sched(http, id);
+        self.update_sched(http, id).await;
     }
 
     /// Enable sleep alerts for user
-    pub fn on(&mut self, http: Arc<Http>, id: UserId) {
+    pub async fn on(&mut self, http: Arc<Http>, id: UserId) {
         self.on = true;
-        self.update_sched(http, id);
+        self.update_sched(http, id).await;
     }
 
     /// Disable sleep alerts for user
-    pub fn off(&mut self, http: Arc<Http>, id: UserId) {
+    pub async fn off(&mut self, http: Arc<Http>, id: UserId) {
         self.on = false;
-        self.update_sched(http, id);
+        self.update_sched(http, id).await;
     }
 
     /// Set user awake flag
